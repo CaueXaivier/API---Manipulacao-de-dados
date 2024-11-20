@@ -338,7 +338,7 @@ def insert_request():
     dado = request.json    
     mydb = get_db_connection()
     cursor = mydb.cursor()  
-    sql = f"INSERT INTO solicitar_estagio (agente,cancelamento,carga_horaria,contato_empresa,data_solicitacao,e_privada,editavel,etapa,final_data_estagio,inicio_data_estagio,nome_empresa,observacao,relatorio_entregue,resposta,salario,status,status_etapa_coordenador,status_etapa_diretor,status_setor_estagio,tipo,turno_estagio,aluno_id,curso_id)  VALUES ('{dado['agente']}','{dado['cancelamento']}','{dado['carga_horaria']}','{dado['contato_empresa']}','{dado['data_solicitacao']}','{dado['e_privada']}','{dado['editavel']}','{dado['etapa']}','{dado['final_data_estagio']}','{dado['inicio_data_estagio']}','{dado['nome_empresa']}','{dado['observacao']}','{dado['relatorio_entregue']}','{dado['resposta']}','{dado['salario']}','{dado['status']}','{dado['status_etapa_coordenador']}','{dado['status_etapa_diretor']}','{dado['status_setor_estagio']}','{dado['tipo']}','{dado['turno_estagio']}','{dado['aluno_id']}','{dado['curso_id']}')"
+    sql = f"INSERT INTO solicitar_estagio (agente,cancelamento,carga_horaria,contato_empresa,data_solicitacao,e_privada,editavel,etapa,final_data_estagio,inicio_data_estagio,nome_empresa,observacao,relatorio_entregue,resposta,salario,status,status_etapa_coordenador,status_etapa_diretor,status_setor_estagio,tipo,turno_estagio,aluno_id,curso_id)  VALUES ('{dado['agente']}',{dado['cancelamento']},'{dado['carga_horaria']}','{dado['contato_empresa']}','{dado['data_solicitacao']}','{dado['e_privada']}',{dado['editavel']},'{dado['etapa']}','{dado['final_data_estagio']}','{dado['inicio_data_estagio']}','{dado['nome_empresa']}','{dado['observacao']}',{dado['relatorio_entregue']},'{dado['resposta']}','{dado['salario']}','{dado['status']}','{dado['status_etapa_coordenador']}','{dado['status_etapa_diretor']}','{dado['status_setor_estagio']}','{dado['tipo']}','{dado['turno_estagio']}','{dado['aluno_id']}','{dado['curso_id']}')"
     cursor.execute(sql)
     mydb.commit()
     return make_response(
@@ -461,6 +461,494 @@ def insert_student():
             mensagem='Aluno cadastrado com sucesso!',
         )
     )
+
+@app.route('/id_request_approved/<int:EnrollStudent>',methods=['GET'])
+@jwt_required()
+def id_request_approved(EnrollStudent):
+
+    mydb = get_db_connection()
+    cursor = mydb.cursor()
+    cursor.execute('SELECT SE.id FROM solicitar_estagio SE INNER JOIN aluno AL ON SE.aluno_id = AL.id WHERE etapa in (5) and relatorio_entregue = 1 and  tipo = "Obrigatório" and matricula = %s', [EnrollStudent])
+    meus_dados = cursor.fetchall()
+    cursor.close() 
+    mydb.close()
+    
+    if len(meus_dados) == 0:
+        return make_response(
+        jsonify(
+            mensagem=f"Nao foi encontrada nenhuma requisicao de estagio finalizada para a matricula {EnrollStudent}!",            
+        )
+    )
+    else:
+        dados = list()
+        for dado in meus_dados:
+         dados.append(
+            {
+                'ID da requisicao de estagio':dado[0],      
+            }
+        )
+        return make_response(
+            jsonify(
+                dados            
+            )
+        )
+
+@app.route('/update_request_approved/<int:IdRequest>',methods=['PUT'])
+@jwt_required()
+def update_request_approved(IdRequest):
+
+    mydb = get_db_connection()
+    cursor = mydb.cursor()  
+    cursor.execute('SELECT id FROM solicitar_estagio WHERE id = %s', [IdRequest])
+    meus_dados = cursor.fetchall()
+    if len(meus_dados) == 0:
+        return make_response(
+        jsonify(
+            mensagem=f"Nao foi encontrada requisicao de estagio com ID {IdRequest}!",            
+        )
+    )
+    else:
+        cursor.execute("UPDATE solicitar_estagio SET etapa = 3,status = 'Em análise' WHERE  id = %s", [IdRequest])
+        mydb.commit()
+        return make_response(
+            jsonify(                
+                mensagem=f'Alterado status da requisicao para Em analise!',        
+            )
+        )
+
+@app.route('/id_request_finished/<int:EnrollStudent>',methods=['GET'])
+@jwt_required()
+def id_request_finished(EnrollStudent):
+
+    mydb = get_db_connection()
+    cursor = mydb.cursor()
+    cursor.execute("SELECT  SE.id FROM solicitar_estagio SE INNER JOIN aluno AL ON SE.aluno_id = AL.id WHERE etapa = 5 and status = 'Finalizado' and relatorio_entregue = 1 and tipo = 'Obrigatório' and matricula = %s  LIMIT 1", [EnrollStudent])
+    meus_dados = cursor.fetchall()
+    cursor.close() 
+    mydb.close()
+    
+    if len(meus_dados) == 0:
+        return make_response(
+        jsonify(
+            mensagem=f"Nao foi encontrada nenhuma requisicao de estagio para a matricula {EnrollStudent}!",            
+        )
+    )
+    else:
+        dados = list()
+        for dado in meus_dados:
+         dados.append(
+            {
+                'ID da requisicao de estagio':dado[0],      
+            }
+        )
+        return make_response(
+            jsonify(
+                dados            
+            )
+        )
+    
+@app.route('/id_request_renewal_coordinator/<int:EnrollStudent>',methods=['GET'])
+@jwt_required()
+def id_request_renewal_coordinator(EnrollStudent):
+
+    mydb = get_db_connection()
+    cursor = mydb.cursor()
+    cursor.execute('SELECT SE.id FROM solicitar_estagio SE INNER JOIN aluno AL ON SE.aluno_id = AL.id WHERE etapa in (1,2,4,5) and tipo = "Renovação" and matricula = %s', [EnrollStudent])
+    meus_dados = cursor.fetchall()
+    cursor.close() 
+    mydb.close()
+    
+    if len(meus_dados) == 0:
+        return make_response(
+        jsonify(
+            mensagem=f"Nao foi encontrada nenhuma requisicao de estagio para a matricula {EnrollStudent}!",            
+        )
+    )
+    else:
+        dados = list()
+        for dado in meus_dados:
+         dados.append(
+            {
+                'ID da requisicao de estagio':dado[0],      
+            }
+        )
+        return make_response(
+            jsonify(
+                dados            
+            )
+        )
+@app.route('/update_request_renewal_coordinator/<int:IdRequest>',methods=['PUT'])
+@jwt_required()
+def update_request_renewal_coordinator(IdRequest):
+
+    mydb = get_db_connection()
+    cursor = mydb.cursor()  
+    cursor.execute('SELECT id FROM solicitar_estagio WHERE id = %s', [IdRequest])
+    meus_dados = cursor.fetchall()
+    if len(meus_dados) == 0:
+        return make_response(
+        jsonify(
+            mensagem=f"Nao foi encontrada requisicao de estagio com ID {IdRequest}!",            
+        )
+    )
+    else:
+        cursor.execute("UPDATE solicitar_estagio SET etapa = 3,status = 'Em análise' WHERE  id = %s", [IdRequest])
+        mydb.commit()
+        return make_response(
+            jsonify(                
+                mensagem=f'Alterado status da requisicao para Em analise!',        
+            )
+        )
+    
+@app.route('/id_request_renewal_approved/<int:EnrollStudent>',methods=['GET'])
+@jwt_required()
+def id_request_renewal_approved(EnrollStudent):
+
+    mydb = get_db_connection()
+    cursor = mydb.cursor()
+    cursor.execute("SELECT  SE.id FROM solicitar_estagio SE INNER JOIN aluno AL ON SE.aluno_id = AL.id WHERE etapa = 5 and status = 'Aprovado' and tipo = 'Renovação' and matricula = %s  LIMIT 1", [EnrollStudent])
+    meus_dados = cursor.fetchall()
+    cursor.close() 
+    mydb.close()
+    
+    if len(meus_dados) == 0:
+        return make_response(
+        jsonify(
+            mensagem=f"Nao foi encontrada nenhuma requisicao de estagio para a matricula {EnrollStudent}!",            
+        )
+    )
+    else:
+        dados = list()
+        for dado in meus_dados:
+         dados.append(
+            {
+                'ID da requisicao de estagio':dado[0],      
+            }
+        )
+        return make_response(
+            jsonify(
+                dados            
+            )
+        )
+
+@app.route('/id_request_approved_no_report_delivered/<int:EnrollStudent>',methods=['GET'])
+@jwt_required()
+def id_request_approved_no_report_delivered(EnrollStudent):
+
+    mydb = get_db_connection()
+    cursor = mydb.cursor()
+    cursor.execute('SELECT SE.id FROM solicitar_estagio SE INNER JOIN aluno AL ON SE.aluno_id = AL.id WHERE etapa in (5) and relatorio_entregue = 0 and  tipo = "Obrigatório" and cancelamento = 0 and status = "Aprovado" and matricula = %s  LIMIT 1', [EnrollStudent])
+    meus_dados = cursor.fetchall()
+    cursor.close() 
+    mydb.close()
+    
+    if len(meus_dados) == 0:
+        return make_response(
+        jsonify(
+            mensagem=f"Nao foi encontrada nenhuma requisicao de estagio aprovada para a matricula {EnrollStudent}!",            
+        )
+    )
+    else:
+        dados = list()
+        for dado in meus_dados:
+         dados.append(
+            {
+                'ID da requisicao de estagio':dado[0],      
+            }
+        )
+        return make_response(
+            jsonify(
+                dados            
+            )
+        )
+    
+@app.route('/update_request_cancellation_coordinator/<int:IdRequest>',methods=['PUT'])
+@jwt_required()
+def update_request_cancellation_coordinator(IdRequest):
+
+    mydb = get_db_connection()
+    cursor = mydb.cursor()  
+    cursor.execute('SELECT id FROM solicitar_estagio WHERE id = %s', [IdRequest])
+    meus_dados = cursor.fetchall()
+    if len(meus_dados) == 0:
+        return make_response(
+        jsonify(
+            mensagem=f"Nao foi encontrada requisicao de estagio com ID {IdRequest}!",            
+        )
+    )
+    else:
+        cursor.execute("UPDATE solicitar_estagio SET etapa = 3,status = 'Em análise',cancelamento = 1 WHERE  id = %s", [IdRequest])
+        mydb.commit()
+        return make_response(
+            jsonify(                
+                mensagem=f'Alterado status da requisicao para Em analise!',        
+            )
+        )
+
+
+@app.route('/id_request_cancelled/<int:EnrollStudent>',methods=['GET'])
+@jwt_required()
+def id_request_cancelled(EnrollStudent):
+
+    mydb = get_db_connection()
+    cursor = mydb.cursor()
+    cursor.execute('SELECT SE.id FROM solicitar_estagio SE INNER JOIN aluno AL ON SE.aluno_id = AL.id WHERE etapa in (2) and relatorio_entregue = 0 and  tipo = "Obrigatório" and cancelamento = 1 and status = "Em análise" and matricula = %s  LIMIT 1', [EnrollStudent])
+    meus_dados = cursor.fetchall()
+    cursor.close() 
+    mydb.close()
+    
+    if len(meus_dados) == 0:
+        return make_response(
+        jsonify(
+            mensagem=f"Nao foi encontrada nenhuma requisicao de estagio cancelada para matricula {EnrollStudent}!",            
+        )
+    )
+    else:
+        dados = list()
+        for dado in meus_dados:
+         dados.append(
+            {
+                'ID da requisicao de estagio':dado[0],      
+            }
+        )
+        return make_response(
+            jsonify(
+                dados            
+            )
+        )
+
+@app.route('/id_request_credit/<int:EnrollStudent>',methods=['GET'])
+@jwt_required()
+def id_request_credit(EnrollStudent):
+
+    mydb = get_db_connection()
+    cursor = mydb.cursor()
+    cursor.execute('SELECT SE.id FROM solicitar_estagio SE INNER JOIN aluno AL ON SE.aluno_id = AL.id WHERE etapa in (3) and relatorio_entregue = 0 and  tipo = "Aproveitamento APRO4" and cancelamento = 0 and status = "Em análise" and matricula = %s  LIMIT 1', [EnrollStudent])
+    meus_dados = cursor.fetchall()
+    cursor.close() 
+    mydb.close()
+    
+    if len(meus_dados) == 0:
+        return make_response(
+        jsonify(
+            mensagem=f"Nao foi encontrada nenhuma requisicao de aproveitamento para matricula {EnrollStudent}!",            
+        )
+    )
+    else:
+        dados = list()
+        for dado in meus_dados:
+         dados.append(
+            {
+                'ID da requisicao de aproveitamento':dado[0],      
+            }
+        )
+        return make_response(
+            jsonify(
+                dados            
+            )
+        )
+
+@app.route('/id_request_credit_approved/<int:EnrollStudent>',methods=['GET'])
+@jwt_required()
+def id_request_credit_approved(EnrollStudent):
+
+    mydb = get_db_connection()
+    cursor = mydb.cursor()
+    cursor.execute('SELECT SE.id FROM solicitar_estagio SE INNER JOIN aluno AL ON SE.aluno_id = AL.id WHERE etapa in (5) and relatorio_entregue = 0 and  tipo = "Aproveitamento APRO4" and cancelamento = 0 and status = "Aprovado" and matricula = %s  LIMIT 1', [EnrollStudent])
+    meus_dados = cursor.fetchall()
+    cursor.close() 
+    mydb.close()
+    
+    if len(meus_dados) == 0:
+        return make_response(
+        jsonify(
+            mensagem=f"Nao foi encontrada nenhuma requisicao de aproveitamento aprovada para matricula {EnrollStudent}!",            
+        )
+    )
+    else:
+        dados = list()
+        for dado in meus_dados:
+         dados.append(
+            {
+                'ID da requisicao de aproveitamento':dado[0],      
+            }
+        )
+        return make_response(
+            jsonify(
+                dados            
+            )
+        )
+
+@app.route('/id_request_approved_not_report/<int:EnrollStudent>',methods=['GET'])
+@jwt_required()
+def id_request_approved_not_report(EnrollStudent):
+
+    mydb = get_db_connection()
+    cursor = mydb.cursor()
+    cursor.execute('SELECT SE.id FROM solicitar_estagio SE INNER JOIN aluno AL ON SE.aluno_id = AL.id WHERE etapa in (5) and relatorio_entregue = 0 and  tipo = "Obrigatório" and matricula = %s', [EnrollStudent])
+    meus_dados = cursor.fetchall()
+    cursor.close() 
+    mydb.close()
+    
+    if len(meus_dados) == 0:
+        return make_response(
+        jsonify(
+            mensagem=f"Nao foi encontrada nenhuma requisicao de estagio aprovada para a matricula {EnrollStudent}!",            
+        )
+    )
+    else:
+        dados = list()
+        for dado in meus_dados:
+         dados.append(
+            {
+                'ID da requisicao de estagio':dado[0],      
+            }
+        )
+        return make_response(
+            jsonify(
+                dados            
+            )
+        )
+    
+@app.route('/update_request_cancellation_director/<int:IdRequest>',methods=['PUT'])
+@jwt_required()
+def update_request_cancellation_director(IdRequest):
+
+    mydb = get_db_connection()
+    cursor = mydb.cursor()  
+    cursor.execute('SELECT id FROM solicitar_estagio WHERE id = %s', [IdRequest])
+    meus_dados = cursor.fetchall()
+    if len(meus_dados) == 0:
+        return make_response(
+        jsonify(
+            mensagem=f"Nao foi encontrada requisicao de estagio com ID {IdRequest}!",            
+        )
+    )
+    else:
+        cursor.execute("UPDATE solicitar_estagio SET etapa = 4,status = 'Em análise',cancelamento = 1 WHERE  id = %s", [IdRequest])
+        mydb.commit()
+        return make_response(
+            jsonify(                
+                mensagem=f'Alterado status da requisicao para Em analise!',        
+            )
+        )
+
+@app.route('/id_request_renewal_director/<int:EnrollStudent>',methods=['GET'])
+@jwt_required()
+def id_request_renewal_director(EnrollStudent):
+
+    mydb = get_db_connection()
+    cursor = mydb.cursor()
+    cursor.execute('SELECT SE.id FROM solicitar_estagio SE INNER JOIN aluno AL ON SE.aluno_id = AL.id WHERE etapa in (1,2,3,5) and tipo = "Renovação" and matricula = %s', [EnrollStudent])
+    meus_dados = cursor.fetchall()
+    cursor.close() 
+    mydb.close()
+    
+    if len(meus_dados) == 0:
+        return make_response(
+        jsonify(
+            mensagem=f"Nao foi encontrada nenhuma requisicao de estagio para a matricula {EnrollStudent}!",            
+        )
+    )
+    else:
+        dados = list()
+        for dado in meus_dados:
+         dados.append(
+            {
+                'ID da requisicao de estagio':dado[0],      
+            }
+        )
+        return make_response(
+            jsonify(
+                dados            
+            )
+        )
+
+@app.route('/update_request_renewal_director/<int:IdRequest>',methods=['PUT'])
+@jwt_required()
+def update_request_renewal_director(IdRequest):
+
+    mydb = get_db_connection()
+    cursor = mydb.cursor()  
+    cursor.execute('SELECT id FROM solicitar_estagio WHERE id = %s', [IdRequest])
+    meus_dados = cursor.fetchall()
+    if len(meus_dados) == 0:
+        return make_response(
+        jsonify(
+            mensagem=f"Nao foi encontrada requisicao de estagio com ID {IdRequest}!",            
+        )
+    )
+    else:
+        cursor.execute("UPDATE solicitar_estagio SET etapa = 4,status = 'Em análise' WHERE  id = %s", [IdRequest])
+        mydb.commit()
+        return make_response(
+            jsonify(                
+                mensagem=f'Alterado status da requisicao para Em analise!',        
+            )
+        )
+
+@app.route('/id_request_not_mandatory_approved/<int:EnrollStudent>',methods=['GET'])
+@jwt_required()
+def id_request_not_mandatory_approved(EnrollStudent):
+
+    mydb = get_db_connection()
+    cursor = mydb.cursor()
+    cursor.execute('SELECT SE.id FROM solicitar_estagio SE INNER JOIN aluno AL ON SE.aluno_id = AL.id WHERE etapa in (5) and cancelamento = 0 and relatorio_entregue = 0 and  tipo = "Não obrigatório" and matricula = %s', [EnrollStudent])
+    meus_dados = cursor.fetchall()
+    cursor.close() 
+    mydb.close()
+    
+    if len(meus_dados) == 0:
+        return make_response(
+        jsonify(
+            mensagem=f"Nao foi encontrada nenhuma requisicao de estagio aprovada para a matricula {EnrollStudent}!",            
+        )
+    )
+    else:
+        dados = list()
+        for dado in meus_dados:
+         dados.append(
+            {
+                'ID da requisicao de estagio':dado[0],      
+            }
+        )
+        return make_response(
+            jsonify(
+                dados            
+            )
+        )
+
+@app.route('/id_request_not_mandatory_analysis_director/<int:EnrollStudent>',methods=['GET'])
+@jwt_required()
+def id_request_not_mandatory_analysis_director(EnrollStudent):
+
+    mydb = get_db_connection()
+    cursor = mydb.cursor()
+    cursor.execute('SELECT SE.id FROM solicitar_estagio SE INNER JOIN aluno AL ON SE.aluno_id = AL.id WHERE etapa in (4) and relatorio_entregue = 0 and cancelamento = 0 and  tipo = "Não obrigatório" and matricula = %s', [EnrollStudent])
+    meus_dados = cursor.fetchall()
+    cursor.close() 
+    mydb.close()
+    
+    if len(meus_dados) == 0:
+        return make_response(
+        jsonify(
+            mensagem=f"Nao foi encontrada nenhuma requisicao de estagio em análise para a matricula {EnrollStudent}!",            
+        )
+    )
+    else:
+        dados = list()
+        for dado in meus_dados:
+         dados.append(
+            {
+                'ID da requisicao de estagio':dado[0],      
+            }
+        )
+        return make_response(
+            jsonify(
+                dados            
+            )
+        )   
+
 
 
 app.run()
